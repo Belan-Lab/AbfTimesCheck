@@ -9,7 +9,7 @@
 
 library(shiny)
 
-options(shiny.maxRequestSize = 1*1024^3)
+options(shiny.maxRequestSize = 10*1024^3)
 
 # Define UI for application
 ui <- fluidPage(
@@ -30,16 +30,19 @@ ui <- fluidPage(
 
         # MainPanel
         mainPanel(
-          textOutput("names")
+          tableOutput("files")
         )
     )
 )
 
 # Define server logic
 server <- function(input, output) {
-  output$names <- renderText({
-    paste("Uploaded files: ", input$abffiles)
-  })
+  output$files <- renderTable({
+    req(input$abffiles)
+    ext <- tools::file_ext(input$abffiles$datapath)
+    validate(need(all(ext == "abf"), "Only .abf files are supported. Please upload an .abf file"))
+    input$abffiles
+    })
 }
 
 # Run the application 
