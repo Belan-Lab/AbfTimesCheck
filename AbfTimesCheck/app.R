@@ -7,6 +7,8 @@
 #    https://shiny.posit.co/
 #
 
+library(tidyverse)
+library(readABF)
 library(shiny)
 
 options(shiny.maxRequestSize = 10*1024^3)
@@ -40,8 +42,17 @@ server <- function(input, output) {
   output$files <- renderTable({
     req(input$abffiles)
     ext <- tools::file_ext(input$abffiles$datapath)
-    validate(need(all(ext == "abf"), "Only .abf files are supported. Please upload an .abf file"))
-    input$abffiles
+    validate(need(all(ext == "abf"), "Only .abf files are supported. Please upload an .abf files"))
+    
+    input$abffiles |>
+      rowwise() |> # need this because abf_obj will be a list column
+      mutate(abf_obj = map(datapath, readABF),
+             day_time = abf_obj$header$uFileStartTimeMS,
+             stopwatch = abf_obj$header$uStopwatchTime
+             ) |> 
+      select(name, day_time, stopwatch) |>
+      arrange(stopwatch)
+    
     })
 }
 
