@@ -46,12 +46,16 @@ server <- function(input, output) {
     
     input$abffiles |>
       rowwise() |> # need this because abf_obj will be a list column
-      mutate(abf_obj = map(datapath, readABF),
-             day_time = abf_obj$header$uFileStartTimeMS,
-             stopwatch = abf_obj$header$uStopwatchTime
+      mutate(abf = map(datapath, readABF),
+             daytime = abf$header$uFileStartTimeMS / 1000,
+             stopwatch = abf$header$uStopwatchTime
              ) |> 
-      select(name, day_time, stopwatch) |>
-      arrange(stopwatch)
+      ungroup() |> # ending rowwise()
+      select(name, daytime, stopwatch) |>
+      arrange(stopwatch) |>
+      mutate (
+        timediff = daytime - first(daytime)
+      )
     
     })
 }
