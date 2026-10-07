@@ -10,6 +10,8 @@
 library(tidyverse)
 library(readABF)
 library(shiny)
+library(bslib)
+library(hms)
 
 options(shiny.maxRequestSize = 10*1024^3)
 
@@ -32,6 +34,7 @@ ui <- fluidPage(
 
         # MainPanel
         mainPanel(
+          input_switch("hms", "Show times in hour:min:sec"),
           tableOutput("files")
         )
     )
@@ -55,10 +58,12 @@ server <- function(input, output) {
       arrange(stopwatch) |>
       mutate (
         timediff = daytime - first(daytime)
-      )
-    
-    })
+      ) |> 
+      (\(x){if(input$hms == TRUE) mutate(x, across(!name, ~as.character(hms(.x)))) else x})()
+    # hms(50)
+    }, digits = 3)
 }
 
 # Run the application 
 shinyApp(ui = ui, server = server)
+
