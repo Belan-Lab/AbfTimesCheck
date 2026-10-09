@@ -17,27 +17,21 @@ options(shiny.maxRequestSize = 10*1024^3)
 
 # Define UI for application
 ui <- fluidPage(
-
-    # Application title
-    titlePanel("Abf Times Checker"),
-
-    # Sidebar
-    sidebarLayout(
-        sidebarPanel(
-          fileInput(
-            "abffiles", 
-            label = "Upload .abf files",
-            multiple = TRUE,
-            accept = ".abf"
-            )
-        ),
-
-        # MainPanel
-        mainPanel(
-          input_switch("hms", "Show times in hour:min:sec"),
-          tableOutput("files")
-        )
-    )
+  # Application title
+  titlePanel("Abf Times Checker"),
+  p("V 0.1"),
+  fileInput(
+    "abffiles",
+    label = "Upload .abf files",
+    multiple = TRUE,
+    accept = ".abf"
+  ),
+  
+  
+  input_switch("hms", "Show times in hour:min:sec"),
+  tableOutput("files")
+  
+  
 )
 
 # Define server logic
@@ -68,7 +62,10 @@ server <- function(input, output) {
 # Run the application 
 shinyApp(ui = ui, server = server)
 
-#add features : gap between files
+#add features : 
+# - gap between files
+# - export to csv
+# - copy column values
 
 
 
