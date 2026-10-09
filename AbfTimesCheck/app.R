@@ -19,7 +19,7 @@ options(shiny.maxRequestSize = 10*1024^3)
 ui <- fluidPage(
 
     # Application title
-    titlePanel("AbfTimesCheck"),
+    titlePanel("Abf Times Checker"),
 
     # Sidebar
     sidebarLayout(
@@ -51,10 +51,11 @@ server <- function(input, output) {
       rowwise() |> # need this because abf_obj will be a list column
       mutate(abf = map(datapath, readABF),
              daytime = abf$header$uFileStartTimeMS / 1000,
-             stopwatch = abf$header$uStopwatchTime
+             stopwatch = abf$header$uStopwatchTime,
+             duration = abf$header$lActualAcqLength * abf$header$fADCSampleInterval / 1000000
              ) |> 
       ungroup() |> # ending rowwise()
-      select(name, daytime, stopwatch) |>
+      select(name, daytime, stopwatch, duration) |>
       arrange(stopwatch) |>
       mutate (
         timediff = daytime - first(daytime)
@@ -66,4 +67,8 @@ server <- function(input, output) {
 
 # Run the application 
 shinyApp(ui = ui, server = server)
+
+#add features : gap between files
+
+
 
