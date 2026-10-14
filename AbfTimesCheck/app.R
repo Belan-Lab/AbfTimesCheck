@@ -50,9 +50,10 @@ server <- function(input, output) {
              ) |> 
       ungroup() |> # ending rowwise()
       select(name, daytime, stopwatch, duration) |>
-      arrange(stopwatch) |>
+      arrange(daytime) |>
       mutate (
-        timediff = daytime - first(daytime)
+        timediff = daytime - first(daytime),
+        timegap = lead(daytime) - daytime - duration
       ) |> 
       (\(x){if(input$hms == TRUE) mutate(x, across(!name, ~as.character(hms(.x)))) else x})()
     # hms(50)
