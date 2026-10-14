@@ -17,26 +17,30 @@ options(shiny.maxRequestSize = 10*1024^3)
 
 # Define UI for application
 ui <- fluidPage(
-  # Application title
+  
   titlePanel("Abf Times Checker"),
+  
   p("V 0.1"),
+  
   fileInput(
-    "abffiles",
+    "abfFiles",
     label = "Upload .abf files",
     multiple = TRUE,
     accept = ".abf"
   ),
   
-  
   input_switch("hms", "Show times in hour:min:sec"),
-  tableOutput("files")
+  
+  tableOutput("tableTimes"),
+  
+  downloadButton("downloadCSV", "Download table as .csv file")
   
   
 )
 
 # Define server logic
 server <- function(input, output) {
-  output$files <- renderTable({
+  output$tableTimes <- renderTable({
     req(input$abffiles)
     ext <- tools::file_ext(input$abffiles$datapath)
     validate(need(all(ext == "abf"), "Only .abf files are supported. Please upload an .abf files"))
@@ -58,6 +62,19 @@ server <- function(input, output) {
       (\(x){if(input$hms == TRUE) mutate(x, across(!name, ~as.character(hms(.x)))) else x})()
     # hms(50)
     }, digits = 3)
+  
+  data <- mtcars
+  
+  output$downloadCSV <- downloadHandler(
+    filename = function() {
+      paste("ABF-times-", Sys.Date(), ".csv", sep="")
+    },
+    content = function(file) {
+      write.csv(data, file)
+    }
+  )
+  
+  
 }
 
 # Run the application 
