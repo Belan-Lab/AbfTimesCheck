@@ -41,11 +41,11 @@ ui <- fluidPage(
 # Define server logic
 server <- function(input, output) {
   output$tableTimes <- renderTable({
-    req(input$abffiles)
-    ext <- tools::file_ext(input$abffiles$datapath)
+    req(input$abfFiles)
+    ext <- tools::file_ext(input$abfFiles$datapath)
     validate(need(all(ext == "abf"), "Only .abf files are supported. Please upload an .abf files"))
     
-    input$abffiles |>
+    input$abfFiles |>
       rowwise() |> # need this because abf_obj will be a list column
       mutate(abf = map(datapath, readABF),
              daytime = abf$header$uFileStartTimeMS / 1000,
