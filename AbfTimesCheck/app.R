@@ -20,7 +20,7 @@ ui <- fluidPage(
   
   titlePanel("Abf Times Checker"),
   
-  p("V 0.1"),
+  p("V 0.2"),
   
   fileInput(
     "abfFiles",
@@ -31,7 +31,7 @@ ui <- fluidPage(
   
   input_switch("hms", "Show times in hour:min:sec"),
   
-  tableOutput("tableTimes"),
+  tableOutput("table"),
   
   downloadButton("downloadCSV", "Download table as .csv file")
   
@@ -40,10 +40,14 @@ ui <- fluidPage(
 
 # Define server logic
 server <- function(input, output) {
-  output$tableTimes <- renderTable({
+  
+  times_table <- reactive({
     req(input$abfFiles)
     ext <- tools::file_ext(input$abfFiles$datapath)
-    validate(need(all(ext == "abf"), "Only .abf files are supported. Please upload an .abf files"))
+    validate(need(
+      all(ext == "abf"),
+      "Only .abf files are supported. Please upload an .abf files"
+    ))
     
     input$abfFiles |>
       rowwise() |> # need this because abf_obj will be a list column
@@ -51,26 +55,26 @@ server <- function(input, output) {
              daytime = abf$header$uFileStartTimeMS / 1000,
              stopwatch = abf$header$uStopwatchTime,
              duration = abf$header$lActualAcqLength * abf$header$fADCSampleInterval / 1000000
-             ) |> 
+      ) |> 
       ungroup() |> # ending rowwise()
       select(name, daytime, stopwatch, duration) |>
       arrange(daytime) |>
-      mutate (
+      mutate(
         timediff = daytime - first(daytime),
         timegap = lead(daytime) - daytime - duration
       ) |> 
-      (\(x){if(input$hms == TRUE) mutate(x, across(!name, ~as.character(hms(.x)))) else x})()
-    # hms(50)
-    }, digits = 3)
+      (\(x){if (input$hms == TRUE) mutate(x, across(!name, ~as.character(hms(.x)))) else x})()
+    
+  })
   
-  data <- mtcars
+  output$table <- renderTable(times_table(), digits = 3)
   
   output$downloadCSV <- downloadHandler(
     filename = function() {
-      paste("ABF-times-", Sys.Date(), ".csv", sep="")
+      paste("ABF-times-", Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
-      write.csv(data, file)
+      write.csv(times_table(), file)
     }
   )
   
