@@ -20,16 +20,31 @@ ui <- fluidPage(
   
   titlePanel("Abf Times Checker"),
   
-  p("V 0.2"),
+  p("Version 0.3"),
   
-  fileInput(
-    "abfFiles",
-    label = "Upload .abf files",
-    multiple = TRUE,
-    accept = ".abf"
+  fluidRow(
+    column(
+      5,
+      fileInput(
+        "abfFiles",
+        label = "Upload .abf files",
+        multiple = TRUE,
+        accept = ".abf"
+      )
+    ),
+    column(
+      7,
+      radioButtons( 
+        inputId = "sort_by", 
+        label = "Sort files by", 
+        choices = list( 
+          "Clampfit stopwatch time" = "stopwatch", 
+          "System time" = "daytime"
+        )
+      ),
+      input_switch("show_hms", "Show times in hour:min:sec"),
+    )
   ),
-  
-  input_switch("hms", "Show times in hour:min:sec"),
   
   tableOutput("table"),
   
@@ -58,12 +73,12 @@ server <- function(input, output) {
       ) |> 
       ungroup() |> # ending rowwise()
       select(name, daytime, stopwatch, duration) |>
-      arrange(daytime) |>
+      arrange(.data[[input$sort_by]]) |>
       mutate(
-        timediff = daytime - first(daytime),
-        timegap = lead(daytime) - daytime - duration
+        timediff = .data[[input$sort_by]] - first(.data[[input$sort_by]]),
+        timegap = lead(.data[[input$sort_by]]) - .data[[input$sort_by]] - duration
       ) |> 
-      (\(x){if (input$hms == TRUE) mutate(x, across(!name, ~as.character(hms(.x)))) else x})()
+      (\(x){if (input$show_hms == TRUE) mutate(x, across(!name, ~as.character(hms(.x)))) else x})()
     
   })
   
