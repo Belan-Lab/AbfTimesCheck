@@ -24,19 +24,20 @@ ui <- fluidPage(
   
   fluidRow(
     column(
-      5,
+      4,
       fileInput(
         "abfFiles",
         label = "Upload .abf files",
         multiple = TRUE,
         accept = ".abf"
-      )
+      ),
+      p("All time values are shown in seconds.")
     ),
     column(
-      7,
+      8,
       radioButtons( 
         inputId = "sort_by", 
-        label = "Sort files by", 
+        label = "Order files by", 
         choices = list( 
           "Clampfit stopwatch time" = "stopwatch", 
           "System time" = "daytime"
@@ -56,7 +57,7 @@ ui <- fluidPage(
 # Define server logic
 server <- function(input, output) {
   
-  times_table <- reactive({
+  input_table <- reactive({
     req(input$abfFiles)
     ext <- tools::file_ext(input$abfFiles$datapath)
     validate(need(
@@ -73,24 +74,44 @@ server <- function(input, output) {
              stopwatch = abf$header$uStopwatchTime
       ) |> 
       ungroup() |> # ending rowwise()
-      select(name, sweeps, duration, daytime, stopwatch) |>
+      select(name, sweeps, duration, daytime, stopwatch)
+  })
+  
+  difftimes_table <- reactive({
+    req(input_table)
+    input_table()|>
       arrange(.data[[input$sort_by]]) |>
       mutate(
         timediff = .data[[input$sort_by]] - first(.data[[input$sort_by]]),
         timegap = lead(.data[[input$sort_by]]) - .data[[input$sort_by]] - duration
-      ) |> 
-      (\(x){if (input$show_hms == TRUE) mutate(x, across(!name, ~as.character(hms(.x)))) else x})()
-    
+      ) 
   })
   
-  output$table <- renderTable(times_table(), digits = 3)
+  final_table <- reactive({
+    req(difftimes_table)
+    {if (input$show_hms == TRUE) {
+      difftimes_table()|>
+        mutate(across(!c(name, sweeps), ~as.character(hms(.x))))
+    } else difftimes_table()} |>
+      rename(
+        `File name` = name,
+        `№ of sweeps` = sweeps,
+        `Total duration` = duration,
+        `System time at the recording start` = daytime,
+        `Clampfit time at the recording start` = stopwatch,
+        `If first file starts at zero this file starts at:` = timediff,
+        `Gap between the start of next file` = timegap
+        )
+  })
+  
+  output$table <- renderTable(final_table(), digits = 3)
   
   output$downloadCSV <- downloadHandler(
     filename = function() {
       paste("ABF-times-", Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
-      write.csv(times_table(), file)
+      write.csv(final_table(), file)
     }
   )
   
