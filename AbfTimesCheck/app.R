@@ -20,7 +20,7 @@ ui <- fluidPage(
   
   titlePanel("Abf Times Checker"),
   
-  p("Version 0.3"),
+  p("Version 0.4"),
   
   fluidRow(
     column(
@@ -67,12 +67,13 @@ server <- function(input, output) {
     input$abfFiles |>
       rowwise() |> # need this because abf_obj will be a list column
       mutate(abf = map(datapath, readABF),
+             sweeps = length(abf$data),
+             duration = abf$header$lActualAcqLength * abf$header$fADCSampleInterval / 1000000,
              daytime = abf$header$uFileStartTimeMS / 1000,
-             stopwatch = abf$header$uStopwatchTime,
-             duration = abf$header$lActualAcqLength * abf$header$fADCSampleInterval / 1000000
+             stopwatch = abf$header$uStopwatchTime
       ) |> 
       ungroup() |> # ending rowwise()
-      select(name, daytime, stopwatch, duration) |>
+      select(name, sweeps, duration, daytime, stopwatch) |>
       arrange(.data[[input$sort_by]]) |>
       mutate(
         timediff = .data[[input$sort_by]] - first(.data[[input$sort_by]]),
