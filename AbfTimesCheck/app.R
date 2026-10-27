@@ -11,6 +11,7 @@ library(tidyverse)
 library(readABF)
 library(shiny)
 library(bslib)
+library(rclipboard)
 library(hms)
 
 options(shiny.maxRequestSize = 10*1024^3)
@@ -43,20 +44,32 @@ ui <- fluidPage(
           "Clampfit stopwatch time" = "stopwatch"
         )
       ),
-      input_switch("show_hms", "Show times in hour:min:sec"),
+      textOutput("hms_text"),
+      input_switch("show_hms", "Show times in hour:min:sec")
     )
   ),
   
   tableOutput("table"),
   
-  downloadButton("downloadCSV", "Download table as .csv file")
+  downloadButton("downloadCSV", "Download table as .csv file"),
   
+  rclipboardSetup(),
+  
+  uiOutput("copy_delta")
   
 )
 
 
 # Define server logic
 server <- function(input, output) {
+  
+  hms_text <- renderText({
+    if (input$show_hms) {
+      "All time values are in hour:min:sec format"
+    } else {
+      "All time values are displayed in seconds"
+    }
+  })
   
   input_table <- reactive({
     req(input$abfFiles)
@@ -100,7 +113,7 @@ server <- function(input, output) {
         `Total duration` = duration,
         `System time at the file start` = daytime,
         `Clampfit time at the file start` = stopwatch,
-        `If first file starts on zero, this starts on:` = timediff,
+        `Δs (If first file starts on zero, this starts on:)` = timediff,
         `Gap after the previous file ends` = timegap
         )
   })
@@ -116,11 +129,25 @@ server <- function(input, output) {
     }
   )
   
+  clipboardtext <- reactive({
+    difftimes_table() |> pull(timediff) |> paste(sep = ", ")
+  })
+  
+  output$copy_delta <- renderUI({
+    rclipButton(
+      inputId = "clipbutton",
+      label = "Copy Δs",
+      clipText = {difftimes_table() |> pull(timediff) |> paste(collapse = ", ")},
+      icon = icon("clipboard"),
+      tooltip = "Δs values (in s) separated by comma",
+      placement = "top",
+      options = list(delay = list(show = 800, hide = 100), trigger = "hover")
+    )
+  })
+
   
 }
 
 # Run the application 
 shinyApp(ui = ui, server = server)
-
-
 
