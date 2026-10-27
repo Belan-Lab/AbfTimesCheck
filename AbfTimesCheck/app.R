@@ -38,9 +38,9 @@ ui <- fluidPage(
       radioButtons( 
         inputId = "sort_by", 
         label = "Order files by", 
-        choices = list( 
-          "Clampfit stopwatch time" = "stopwatch", 
-          "System time" = "daytime"
+        choices = list(
+          "System time" = "daytime",
+          "Clampfit stopwatch time" = "stopwatch"
         )
       ),
       input_switch("show_hms", "Show times in hour:min:sec"),
@@ -53,6 +53,7 @@ ui <- fluidPage(
   
   
 )
+
 
 # Define server logic
 server <- function(input, output) {
@@ -83,7 +84,7 @@ server <- function(input, output) {
       arrange(.data[[input$sort_by]]) |>
       mutate(
         timediff = .data[[input$sort_by]] - first(.data[[input$sort_by]]),
-        timegap = lead(.data[[input$sort_by]]) - .data[[input$sort_by]] - duration
+        timegap = .data[[input$sort_by]] - lag(.data[[input$sort_by]]) - lag(duration)
       ) 
   })
   
@@ -95,12 +96,12 @@ server <- function(input, output) {
     } else difftimes_table()} |>
       rename(
         `File name` = name,
-        `№ of sweeps` = sweeps,
+        `Sweeps count` = sweeps,
         `Total duration` = duration,
-        `System time at the recording start` = daytime,
-        `Clampfit time at the recording start` = stopwatch,
-        `If first file starts at zero this file starts at:` = timediff,
-        `Gap between the start of next file` = timegap
+        `System time at the file start` = daytime,
+        `Clampfit time at the file start` = stopwatch,
+        `If first file starts on zero, this starts on:` = timediff,
+        `Gap after the previous file ends` = timegap
         )
   })
   
@@ -120,11 +121,6 @@ server <- function(input, output) {
 
 # Run the application 
 shinyApp(ui = ui, server = server)
-
-#add features : 
-# - gap between files
-# - export to csv
-# - copy column values
 
 
 
