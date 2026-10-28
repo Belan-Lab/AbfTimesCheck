@@ -11,6 +11,7 @@ library(tidyverse)
 library(readABF)
 library(shiny)
 library(bslib)
+library(rclipboard)
 library(hms)
 
 options(shiny.maxRequestSize = 10*1024^3)
@@ -20,43 +21,63 @@ ui <- fluidPage(
   
   titlePanel("Abf Times Checker"),
   
-  p("Version 0.4"),
+  p("Version 0.5"),
   
   fluidRow(
     column(
-      5,
+      4,
       fileInput(
         "abfFiles",
         label = "Upload .abf files",
         multiple = TRUE,
         accept = ".abf"
-      )
+      ),
+      textOutput("hms_text"),
+      input_switch("show_hms", "Show times in hour:min:sec")
     ),
     column(
-      7,
+      8,
       radioButtons( 
         inputId = "sort_by", 
-        label = "Sort files by", 
-        choices = list( 
-          "Clampfit stopwatch time" = "stopwatch", 
-          "System time" = "daytime"
+        label = "Order files by", 
+        choices = list(
+          "System time" = "daytime",
+          "Clampfit stopwatch time" = "stopwatch"
         )
       ),
-      input_switch("show_hms", "Show times in hour:min:sec"),
+      p('The "stopwatch time" is stored in the file metadata as whole-second count 
+      from the time when Clampfit was opened.
+      It is less precise than system time, saved with ms precision.')
+
     )
   ),
   
   tableOutput("table"),
-  
-  downloadButton("downloadCSV", "Download table as .csv file")
-  
+  fluidRow(
+    column(6, 
+           downloadButton("downloadCSV", "Download table as .csv file")
+           ),
+    column(6, 
+         rclipboardSetup(), 
+         uiOutput("copy_delta")
+          )
+  )
   
 )
+
 
 # Define server logic
 server <- function(input, output) {
   
-  times_table <- reactive({
+  output$hms_text <- renderText({
+    if (input$show_hms) {
+      "All time values are in hour:min:sec format"
+    } else {
+      "All time values are displayed in seconds"
+    }
+  })
+  
+  input_table <- reactive({
     req(input$abfFiles)
     ext <- tools::file_ext(input$abfFiles$datapath)
     validate(need(
@@ -73,37 +94,66 @@ server <- function(input, output) {
              stopwatch = abf$header$uStopwatchTime
       ) |> 
       ungroup() |> # ending rowwise()
-      select(name, sweeps, duration, daytime, stopwatch) |>
+      select(name, sweeps, duration, daytime, stopwatch)
+  })
+  
+  difftimes_table <- reactive({
+    req(input_table)
+    input_table()|>
       arrange(.data[[input$sort_by]]) |>
       mutate(
         timediff = .data[[input$sort_by]] - first(.data[[input$sort_by]]),
-        timegap = lead(.data[[input$sort_by]]) - .data[[input$sort_by]] - duration
-      ) |> 
-      (\(x){if (input$show_hms == TRUE) mutate(x, across(!name, ~as.character(hms(.x)))) else x})()
-    
+        timegap = .data[[input$sort_by]] - lag(.data[[input$sort_by]]) - lag(duration)
+      ) 
   })
   
-  output$table <- renderTable(times_table(), digits = 3)
+  final_table <- reactive({
+    req(difftimes_table)
+    {if (input$show_hms == TRUE) {
+      difftimes_table()|>
+        mutate(across(!c(name, sweeps), ~as.character(hms(.x))))
+    } else difftimes_table()} |>
+      rename(
+        `File name` = name,
+        `Sweeps count` = sweeps,
+        `Total duration` = duration,
+        `System time at the file start` = daytime,
+        `Clampfit time at the file start` = stopwatch,
+        `Δs (If first file starts on zero, this starts on _)` = timediff,
+        `Gap after the previous file ends` = timegap
+        )
+  })
+  
+  output$table <- renderTable(final_table(), digits = 3)
   
   output$downloadCSV <- downloadHandler(
     filename = function() {
       paste("ABF-times-", Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
-      write.csv(times_table(), file)
+      write.csv(final_table(), file)
     }
   )
   
+  clipboardtext <- reactive({
+    difftimes_table() |> pull(timediff) |> paste(sep = ", ")
+  })
+  
+  output$copy_delta <- renderUI({
+    rclipButton(
+      inputId = "clipbutton",
+      label = "Copy Δs",
+      clipText = {difftimes_table() |> pull(timediff) |> round(digits = 3) |> paste(collapse = ", ")},
+      icon = icon("clipboard"),
+      tooltip = "Δs values (in s) separated by comma",
+      placement = "top",
+      options = list(delay = list(show = 800, hide = 100), trigger = "hover")
+    )
+  })
+
   
 }
 
 # Run the application 
 shinyApp(ui = ui, server = server)
-
-#add features : 
-# - gap between files
-# - export to csv
-# - copy column values
-
-
 
