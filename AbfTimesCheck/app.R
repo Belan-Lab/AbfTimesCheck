@@ -21,7 +21,7 @@ ui <- fluidPage(
   
   titlePanel("Abf Times Checker"),
   
-  p("Version 0.4"),
+  p("Version 0.5"),
   
   fluidRow(
     column(
@@ -32,7 +32,8 @@ ui <- fluidPage(
         multiple = TRUE,
         accept = ".abf"
       ),
-      p("All time values are shown in seconds.")
+      textOutput("hms_text"),
+      input_switch("show_hms", "Show times in hour:min:sec")
     ),
     column(
       8,
@@ -44,18 +45,23 @@ ui <- fluidPage(
           "Clampfit stopwatch time" = "stopwatch"
         )
       ),
-      textOutput("hms_text"),
-      input_switch("show_hms", "Show times in hour:min:sec")
+      p('The "stopwatch time" is stored in the file metadata as whole-second count 
+      from the time when Clampfit was opened.
+      It is less precise than system time, saved with ms precision.')
+
     )
   ),
   
   tableOutput("table"),
-  
-  downloadButton("downloadCSV", "Download table as .csv file"),
-  
-  rclipboardSetup(),
-  
-  uiOutput("copy_delta")
+  fluidRow(
+    column(6, 
+           downloadButton("downloadCSV", "Download table as .csv file")
+           ),
+    column(6, 
+         rclipboardSetup(), 
+         uiOutput("copy_delta")
+          )
+  )
   
 )
 
@@ -63,7 +69,7 @@ ui <- fluidPage(
 # Define server logic
 server <- function(input, output) {
   
-  hms_text <- renderText({
+  output$hms_text <- renderText({
     if (input$show_hms) {
       "All time values are in hour:min:sec format"
     } else {
@@ -113,7 +119,7 @@ server <- function(input, output) {
         `Total duration` = duration,
         `System time at the file start` = daytime,
         `Clampfit time at the file start` = stopwatch,
-        `Δs (If first file starts on zero, this starts on:)` = timediff,
+        `Δs (If first file starts on zero, this starts on _)` = timediff,
         `Gap after the previous file ends` = timegap
         )
   })
@@ -137,7 +143,7 @@ server <- function(input, output) {
     rclipButton(
       inputId = "clipbutton",
       label = "Copy Δs",
-      clipText = {difftimes_table() |> pull(timediff) |> paste(collapse = ", ")},
+      clipText = {difftimes_table() |> pull(timediff) |> round(digits = 3) |> paste(collapse = ", ")},
       icon = icon("clipboard"),
       tooltip = "Δs values (in s) separated by comma",
       placement = "top",
